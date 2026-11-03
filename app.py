@@ -300,7 +300,6 @@ def _parse(s):
 
 _SPECTRA = {k: _parse(v) for k, v in _RAW.items()}
 
-# 修改甲基橙的上限为 500 μM
 SOLUTIONS = {
     "methyl": dict(name="甲基橙", color=(255, 68, 0), bands=[(464, 26000, 35), (350, 8000, 50)], conc_max=500, conc_label="μM"),
     "kmno4": dict(name="高锰酸钾", color=(153, 0, 204), spectrum=_SPECTRA["KMnO4"], conc_max=500, conc_label="μM"),
@@ -380,54 +379,56 @@ sol_hex = rgb2hex(SOLUTIONS[sol_key]["color"])
 wl = st.session_state.wl
 beam_hex = rgb2hex(wavelength_to_rgb(wl))
 
-# 注入动态 CSS 控制滑块轨道颜色和滑块点样式
+# 注入深度定制的 CSS 控制滑块轨道和滑块点，强行覆盖原生组件
 st.markdown(f"""
 <style>
-    /* 波长滑块七彩渐变 */
-    div[data-testid="stSlider"]:has([aria-label*="波长调节"]) div[data-baseweb="slider"] > div > div:first-child {{
-        background: linear-gradient(to right, #8b00ff, #0000ff, #00ffff, #00ff00, #ffff00, #ff7f00, #ff0000, #8b0000) !important;
-        height: 10px !important;
-        border-radius: 5px !important;
-    }}
-    /* 露出底层的渐变 */
-    div[data-testid="stSlider"]:has([aria-label*="波长调节"]) div[data-baseweb="slider"] > div > div:first-child > div {{
+    /* 隐藏所有滑块底部的默认填充进度条，暴露出底轨 */
+    div[data-testid="stSlider"] div[data-baseweb="slider"] > div > div:first-child > div {{
         background: transparent !important;
-    }}
-    /* 波长滑块点 */
-    div[data-testid="stSlider"]:has([aria-label*="波长调节"]) div[role="slider"] {{
-        background-color: {beam_hex} !important;
-        border: 3px solid white !important;
-        box-shadow: 0 0 4px rgba(0,0,0,0.4) !important;
-        width: 18px !important;
-        height: 18px !important;
-        margin-top: -4px !important;
-        border-radius: 50% !important;
     }}
 
-    /* 浓度滑块颜色渐变 (基于当前溶液颜色) */
+    /* ===== 波长调节滑块 ===== */
+    /* 波长底轨（彩虹渐变，直角，加粗） */
+    div[data-testid="stSlider"]:has([aria-label*="波长调节"]) div[data-baseweb="slider"] > div > div:first-child {{
+        background: linear-gradient(to right, #6a00ff, #0000ff, #00ffff, #00ff00, #ffff00, #ff7f00, #ff0000, #6a0000) !important;
+        height: 12px !important;
+        border-radius: 2px !important;
+    }}
+    /* 波长滑块点（实心，带白边） */
+    div[data-testid="stSlider"]:has([aria-label*="波长调节"]) div[role="slider"] {{
+        background-color: {beam_hex} !important;
+        border: 2px solid white !important;
+        border-radius: 50% !important;
+        width: 20px !important;
+        height: 20px !important;
+        margin-top: -4px !important;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.3) !important;
+    }}
+
+    /* ===== 浓度调节滑块 ===== */
+    /* 浓度底轨（白到溶液色渐变，直角，加粗） */
     div[data-testid="stSlider"]:has([aria-label*="浓度调节"]) div[data-baseweb="slider"] > div > div:first-child {{
-        background: linear-gradient(to right, white, {sol_hex}) !important;
-        height: 10px !important;
-        border-radius: 5px !important;
+        background: linear-gradient(to right, rgba(255,255,255,0.1), {sol_hex}) !important;
+        height: 12px !important;
+        border-radius: 2px !important;
+        border: 1px solid #e0e0e0 !important; /* 加极淡边框看清起点 */
     }}
-    div[data-testid="stSlider"]:has([aria-label*="浓度调节"]) div[data-baseweb="slider"] > div > div:first-child > div {{
-        background: transparent !important;
-    }}
-    /* 浓度滑块点 */
+    /* 浓度滑块点（空心，内部白色，边框溶液色） */
     div[data-testid="stSlider"]:has([aria-label*="浓度调节"]) div[role="slider"] {{
         background-color: white !important;
         border: 4px solid {sol_hex} !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
-        width: 16px !important;
-        height: 16px !important;
-        margin-top: -3px !important;
         border-radius: 50% !important;
+        width: 18px !important;
+        height: 18px !important;
+        margin-top: -3px !important;
+        box-shadow: none !important;
     }}
 
-    /* 光程滑块默认灰色 */
+    /* ===== 光程滑块（恢复经典灰色） ===== */
     div[data-testid="stSlider"]:has([aria-label*="光程长度"]) div[data-baseweb="slider"] > div > div:first-child {{
         background: #e0e0e0 !important;
         height: 8px !important;
+        border-radius: 4px !important;
     }}
     div[data-testid="stSlider"]:has([aria-label*="光程长度"]) div[data-baseweb="slider"] > div > div:first-child > div {{
         background: #999 !important;
@@ -438,7 +439,7 @@ st.markdown(f"""
         width: 14px !important;
         height: 14px !important;
         margin-top: -3px !important;
-        border-radius: 2px !important;
+        border-radius: 50% !important;
     }}
 
     /* 侧边栏标题加粗 */
@@ -498,7 +499,6 @@ left_col, right_col = st.columns([1.2, 1])
 with left_col:
     # 计算图层颜色 (浓度变深，颜色加深)
     depth = min(1.0, conc / cm) if cm > 0 else 0
-    # 用 0.1 的基准透明度，避免浓度为 0 时完全纯白看不见液面，同时浓度越高越接近原色
     alpha = 0.1 + 0.9 * depth
     liquid_rgb = blend_color(SOLUTIONS[sol_key]["color"], (255, 255, 255), alpha)
     liquid_hex = rgb2hex(liquid_rgb)
@@ -510,7 +510,7 @@ with left_col:
     half = 25 + 40 * path
     bx0, bx1 = 400 - half, 400 + half
     lx, det_x = 160, 750
-    sol_h, beam_h = 240, 50 # 加粗光线
+    sol_h, beam_h = 240, 50 
 
     # 光线渲染 (使用切片模拟透明混合)
     beam_rects = ""
@@ -527,7 +527,6 @@ with left_col:
         
         out_alpha = max(0.05, T_ratio)
         out_rgb = blend_color(beam_rgb, (255, 255, 255), out_alpha)
-        # 直接画到检测器中心
         c_rects += f'<rect x="{bx1}" y="{cy-beam_h/2}" width="{det_x-bx1}" height="{beam_h}" fill="{rgb2hex(out_rgb)}" />'
         beam_rects = c_rects
 
