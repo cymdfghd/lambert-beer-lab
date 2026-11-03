@@ -375,41 +375,43 @@ sol_hex = rgb2hex(SOLUTIONS[sol_key]["color"])
 wl = st.session_state.wl
 beam_hex = rgb2hex(wavelength_to_rgb(wl))
 
-# 【核心修改：更深层、更暴力的 CSS 覆盖，适配最新版 Streamlit】
+# 【终极 CSS 注入：应对最新版 Streamlit 的结构】
 st.markdown(f"""
 <style>
-    /* 1. 全盘隐藏进度填充条（那条红色的线） */
+    /* 1. 暴力清除任何可能存在的内部进度条底色（那条红色的线） */
     div[data-testid="stSlider"] div[data-baseweb="slider"] > div > div > div {{
         background: transparent !important;
+        background-color: transparent !important;
         background-image: none !important;
     }}
-    
-    /* 2. 设置底轨高度和圆角 */
-    div[data-testid="stSlider"] div[data-baseweb="slider"] > div > div {{
+
+    /* 2. 重置底轨的外层容器 */
+    div[data-testid="stSlider"] div[data-baseweb="slider"] > div > div:first-child {{
         height: 12px !important;
-        border-radius: 3px !important;
+        border-radius: 4px !important;
     }}
 
-    /* ===== 波长滑块定制 ===== */
-    div[data-testid="stSlider"]:has([aria-label*="波长调节"]) div[data-baseweb="slider"] > div > div {{
+    /* ===== 波长调节轨道 & 滑块点 ===== */
+    /* 直接通过 :has 匹配带“波长”字样的组件 */
+    div[data-testid="stSlider"]:has(label:contains("波长")) div[data-baseweb="slider"] > div > div:first-child {{
         background: linear-gradient(to right, #6a00ff, #0000ff, #00ffff, #00ff00, #ffff00, #ff7f00, #ff0000, #6a0000) !important;
     }}
-    div[data-testid="stSlider"]:has([aria-label*="波长调节"]) div[data-baseweb="slider"] [role="slider"] {{
+    div[data-testid="stSlider"]:has(label:contains("波长")) [role="slider"] {{
         background-color: {beam_hex} !important;
         border: 3px solid white !important;
         width: 20px !important;
         height: 20px !important;
         margin-top: -4px !important;
         border-radius: 50% !important;
-        box-shadow: 0 0 4px rgba(0,0,0,0.5) !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.4) !important;
     }}
 
-    /* ===== 浓度滑块定制 ===== */
-    div[data-testid="stSlider"]:has([aria-label*="浓度调节"]) div[data-baseweb="slider"] > div > div {{
-        background: linear-gradient(to right, rgba(255,255,255,0.2), {sol_hex}) !important;
+    /* ===== 浓度调节轨道 & 滑块点 ===== */
+    div[data-testid="stSlider"]:has(label:contains("浓度")) div[data-baseweb="slider"] > div > div:first-child {{
+        background: linear-gradient(to right, rgba(200,200,200,0.2), {sol_hex}) !important;
         border: 1px solid #555 !important;
     }}
-    div[data-testid="stSlider"]:has([aria-label*="浓度调节"]) div[data-baseweb="slider"] [role="slider"] {{
+    div[data-testid="stSlider"]:has(label:contains("浓度")) [role="slider"] {{
         background-color: white !important;
         border: 4px solid {sol_hex} !important;
         width: 18px !important;
@@ -419,11 +421,11 @@ st.markdown(f"""
         box-shadow: none !important;
     }}
 
-    /* ===== 光程滑块（默认灰色） ===== */
-    div[data-testid="stSlider"]:has([aria-label*="光程长度"]) div[data-baseweb="slider"] > div > div {{
-        background: #555 !important; /* 暗色模式下的灰色 */
+    /* ===== 光程调节（恢复普通样式） ===== */
+    div[data-testid="stSlider"]:has(label:contains("光程")) div[data-baseweb="slider"] > div > div:first-child {{
+        background: #555 !important;
     }}
-    div[data-testid="stSlider"]:has([aria-label*="光程长度"]) div[data-baseweb="slider"] [role="slider"] {{
+    div[data-testid="stSlider"]:has(label:contains("光程")) [role="slider"] {{
         background-color: white !important;
         border: 2px solid #999 !important;
         width: 16px !important;
@@ -433,6 +435,53 @@ st.markdown(f"""
     }}
 </style>
 """, unsafe_allow_html=True)
+
+# 注意：Streamlit 的 label 文本中包含了 emoji，所以用 `label:contains` 是支持的。
+# 但在某些版本中，需要用更通用的属性选择器：
+st.markdown(f"""
+<style>
+    /* 针对带 emoji 的特定 aria-label */
+    div[data-testid="stSlider"]:has([aria-label*="波长调节"]) div[data-baseweb="slider"] > div > div:first-child {{
+        background: linear-gradient(to right, #6a00ff, #0000ff, #00ffff, #00ff00, #ffff00, #ff7f00, #ff0000, #6a0000) !important;
+    }}
+    div[data-testid="stSlider"]:has([aria-label*="波长调节"]) [role="slider"] {{
+        background-color: {beam_hex} !important;
+        border: 3px solid white !important;
+        width: 20px !important;
+        height: 20px !important;
+        margin-top: -4px !important;
+        border-radius: 50% !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.4) !important;
+    }}
+
+    div[data-testid="stSlider"]:has([aria-label*="浓度调节"]) div[data-baseweb="slider"] > div > div:first-child {{
+        background: linear-gradient(to right, rgba(200,200,200,0.2), {sol_hex}) !important;
+        border: 1px solid #555 !important;
+    }}
+    div[data-testid="stSlider"]:has([aria-label*="浓度调节"]) [role="slider"] {{
+        background-color: white !important;
+        border: 4px solid {sol_hex} !important;
+        width: 18px !important;
+        height: 18px !important;
+        margin-top: -3px !important;
+        border-radius: 50% !important;
+        box-shadow: none !important;
+    }}
+
+    div[data-testid="stSlider"]:has([aria-label*="光程长度"]) div[data-baseweb="slider"] > div > div:first-child {{
+        background: #555 !important;
+    }}
+    div[data-testid="stSlider"]:has([aria-label*="光程长度"]) [role="slider"] {{
+        background-color: white !important;
+        border: 2px solid #999 !important;
+        width: 16px !important;
+        height: 16px !important;
+        margin-top: -2px !important;
+        border-radius: 50% !important;
+    }}
+</style>
+""", unsafe_allow_html=True)
+
 
 st.title("🧪 朗伯-比尔定律仿真实验")
 st.caption("Lambert-Beer Law · A = εbc = lg(1/T)")
