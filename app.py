@@ -1,24 +1,10 @@
 # -*- coding: utf-8 -*-
-"""
-朗伯-比尔定律仿真实验（Streamlit 版）
-======================================
-由桌面版(tkinter)源程序移植并重新设计：
-- 左侧调节栏：溶液选择 / 测量模式 / 浓度调节(溶液色渐变条+圆形调节点)
-              / 光程长度(0.5~2.0cm) / 波长调节(七彩渐变条+彩色圆点)
-- 中部实验场景：灯泡光源、粗光束(透射渐隐质感)、立体检测器、A/T 悬浮屏
-- 底部数据区：光谱曲线(纵轴自适应凸显波峰) + 大字排版数据表格 + CSV 导出
-
-运行：streamlit run lambert_beer_app.py
-"""
 import math
 import streamlit as st
 import streamlit.components.v1 as components
 import plotly.graph_objects as go
 
 # ================= 摩尔吸光系数光谱数据 =================
-# 来源: wavelength-to-molarAbsorptivity.csv 以及 KMnO4-data-revised.xlsx
-# 波长范围: 380~780 nm，每 1 nm 一个值，共 401 个数据点
-# 单位: L·mol⁻¹·cm⁻¹
 _RAW = {
     "KMnO4": """432.81225405939404,436.2276084016355,440.94107162096407,447.4016305949808,455.7705138823726,460.94961173790557,458.2832186049659,452.7232447312358,445.3128416767422,438.0871401142881,
 429.595725793351,421.3966785619027,410.57524507969356,399.74262366237235,387.4137483573413,375.3166114334017,364.3500533815204,352.6900927733386,333.84620539133584,325.39080122573114,
@@ -61,7 +47,6 @@ _RAW = {
 21.701898563603777,20.949850776476126,20.50061521967342,20.108294216882598,19.981225016497923,19.789745754613747,19.161970073956127,17.75209613741913,16.648595027152737,16.391630637328205,
 17.127930579907115,17.835087104465174,18.153721245211827,17.766692687841783,17.118372743430996,16.562464760322882,16.55060225917262,16.449712150549384,16.698737079360228,16.732312215087802,
 17.268712550851774""",
-
     "K2Cr2O7": """3245.74,3305.84,3365.95,3396,3456.11,3516.21,3546.27,3546.27,3576.32,3606.37,
 3636.43,3666.48,3696.53,3696.53,3696.53,3696.53,3696.53,3666.48,3666.48,3636.43,
 3636.43,3606.37,3606.37,3576.32,3546.27,3516.21,3456.11,3396,3365.95,3305.84,
@@ -91,6 +76,7 @@ _RAW = {
 90.16,90.16,90.16,90.16,90.16,90.16,90.16,90.16,90.16,90.16,
 90.16,90.16,90.16,90.16,90.16,90.16,90.16,90.16,90.16,90.16,
 90.16,90.16,90.16,90.16,90.16,90.16,90.16,90.16,90.16,90.16,
+90.16,90.16,90.16,90.16,90.16,90.16,90.16,90.16,90.16,90.16,
 90.16,90.16,90.16,90.16,60.11,90.16,60.11,90.16,90.16,90.16,
 60.11,90.16,90.16,90.16,90.16,90.16,60.11,90.16,90.16,60.11,
 90.16,60.11,90.16,60.11,60.11,90.16,60.11,60.11,90.16,60.11,
@@ -102,7 +88,6 @@ _RAW = {
 60.11,60.11,60.11,60.11,60.11,60.11,60.11,60.11,60.11,60.11,
 60.11,60.11,90.16,60.11,60.11,60.11,60.11,60.11,60.11,60.11,
 60.11,60.11""",
-
     "K2CrO4": """1737.67,1805.81,1908.03,2010.24,2146.53,2248.75,2350.96,2453.18,2589.47,2725.75,
 2862.04,2964.26,3100.55,3202.76,3304.98,3441.26,3577.55,3713.84,3816.06,3918.27,
 4054.56,4156.78,4224.92,4293.06,4395.28,4497.49,4565.64,4633.78,4701.93,4736,
@@ -144,7 +129,6 @@ _RAW = {
 68.14,34.07,68.14,68.14,34.07,68.14,68.14,34.07,68.14,68.14,
 34.07,34.07,34.07,68.14,68.14,68.14,34.07,68.14,68.14,34.07,
 68.14,34.07,68.14""",
-
     "CuSO4": """0.23,0.23,0.23,0.22,0.22,0.22,0.22,0.2,0.2,0.18,
 0.18,0.18,0.18,0.18,0.18,0.18,0.18,0.16,0.16,0.16,
 0.16,0.16,0.16,0.14,0.14,0.14,0.14,0.14,0.14,0.14,
@@ -186,7 +170,6 @@ _RAW = {
 8.15,8.24,8.31,8.38,8.46,8.55,8.62,8.69,8.76,8.83,
 8.92,8.98,9.05,9.12,9.2,9.27,9.34,9.39,9.47,9.54,
 9.61""",
-
     "NiCl2": """0.31,0.33,0.34,0.36,0.39,0.41,0.43,0.46,0.48,0.51,
 0.57,0.58,0.63,0.67,0.7,0.75,0.8,0.86,0.92,0.99,
 1.08,1.16,1.25,1.32,1.44,1.56,1.68,1.82,1.95,2.09,
@@ -228,7 +211,6 @@ _RAW = {
 2.24,2.24,2.24,2.24,2.24,2.23,2.23,2.23,2.23,2.21,
 2.21,2.21,2.19,2.19,2.17,2.16,2.14,2.14,2.12,2.11,
 2.11""",
-
     "CoCl2": """7.01,6.97,6.94,6.91,6.87,6.84,6.81,6.77,6.73,6.7,
 6.66,6.64,6.62,6.59,6.55,6.53,6.5,6.46,6.43,6.4,
 6.38,6.34,6.32,6.29,6.28,6.24,6.22,6.19,6.17,6.14,
@@ -270,7 +252,6 @@ _RAW = {
 2.04,2.04,2.03,2.02,2.02,2.02,2.01,2.01,2,2,
 1.99,1.98,1.98,1.97,1.97,1.97,1.96,1.94,1.94,1.94,
 1.93""",
-
     "Co(NO3)2": """0.32,0.27,0.23,0.18,0.15,0.13,0.12,0.1,0.07,0.05,
 0.05,0.03,0.03,0.03,0.03,0.02,0.02,0.02,0.02,0.02,
 0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.03,0.03,
@@ -314,172 +295,68 @@ _RAW = {
 0.03""",
 }
 
-
 def _parse(s):
-    """将逗号/换行分隔的字符串解析为浮点数列表"""
     return [float(x) for x in s.replace("\n", " ").replace(",", " ").split() if x]
 
+_SPECTRA = {k: _parse(v) for k, v in _RAW.items()}
 
-# 光谱统一对齐为 401 点（对应波长 380-780 nm，每 1 nm 一个点）
-# 个别数据文件点数不足 401 时，末尾按最后值平延补齐；超出则截断
-def _align_spectrum(s):
-    vals = _parse(s)
-    if len(vals) < 401:
-        vals = vals + [vals[-1]] * (401 - len(vals))
-    return vals[:401]
-
-
-_SPECTRA = {k: _align_spectrum(v) for k, v in _RAW.items()}
-
-# ================= 溶液数据库 =================
 SOLUTIONS = {
-    "methyl": dict(
-        name="甲基橙", color=(255, 68, 0),
-        bands=[(464, 26000, 35), (350, 8000, 50)],
-        conc_max=60,          # μM
-        conc_label="μM",
-    ),
-    "kmno4": dict(
-        name="高锰酸钾", color=(153, 0, 204),
-        spectrum=_SPECTRA["KMnO4"],
-        conc_max=500,         # μM
-        conc_label="μM",
-    ),
-    "k2cr2o7": dict(
-        name="重铬酸钾", color=(255, 140, 0),
-        spectrum=_SPECTRA["K2Cr2O7"],
-        conc_max=300,         # μM
-        conc_label="μM",
-    ),
-    "k2cro4": dict(
-        name="铬酸钾", color=(255, 180, 0),
-        spectrum=_SPECTRA["K2CrO4"],
-        conc_max=250,         # μM
-        conc_label="μM",
-    ),
-    "cuso4": dict(
-        name="硫酸铜", color=(0, 102, 204),
-        spectrum=_SPECTRA["CuSO4"],
-        conc_max=100000,      # μM (= 100 mM)
-        conc_label="mM",
-    ),
-    "nicl2": dict(
-        name="氯化镍", color=(0, 170, 68),
-        spectrum=_SPECTRA["NiCl2"],
-        conc_max=200000,      # μM (= 200 mM)
-        conc_label="mM",
-    ),
-    "cocl2": dict(
-        name="氯化钴", color=(255, 102, 153),
-        spectrum=_SPECTRA["CoCl2"],
-        conc_max=150000,      # μM (= 150 mM)
-        conc_label="mM",
-    ),
-    "cono32": dict(
-        name="硝酸钴", color=(230, 80, 100),
-        spectrum=_SPECTRA["Co(NO3)2"],
-        conc_max=200000,      # μM (= 200 mM)
-        conc_label="mM",
-    ),
+    "methyl": dict(name="甲基橙", color=(255, 68, 0), bands=[(464, 26000, 35), (350, 8000, 50)], conc_max=500, conc_label="μM"),
+    "kmno4": dict(name="高锰酸钾", color=(153, 0, 204), spectrum=_SPECTRA["KMnO4"], conc_max=500, conc_label="μM"),
+    "k2cr2o7": dict(name="重铬酸钾", color=(255, 140, 0), spectrum=_SPECTRA["K2Cr2O7"], conc_max=300, conc_label="μM"),
+    "k2cro4": dict(name="铬酸钾", color=(255, 180, 0), spectrum=_SPECTRA["K2CrO4"], conc_max=250, conc_label="μM"),
+    "cuso4": dict(name="硫酸铜", color=(0, 102, 204), spectrum=_SPECTRA["CuSO4"], conc_max=100000, conc_label="mM"),
+    "nicl2": dict(name="氯化镍", color=(0, 170, 68), spectrum=_SPECTRA["NiCl2"], conc_max=200000, conc_label="mM"),
+    "cocl2": dict(name="氯化钴", color=(255, 102, 153), spectrum=_SPECTRA["CoCl2"], conc_max=150000, conc_label="mM"),
+    "cono32": dict(name="硝酸钴", color=(230, 80, 100), spectrum=_SPECTRA["Co(NO3)2"], conc_max=200000, conc_label="mM"),
 }
 
 # ================= 核心算法 =================
 def wavelength_to_rgb(wl):
-    """将可见光波长(380~780nm)转换为 RGB 颜色"""
     wl = max(380.0, min(780.0, float(wl)))
-    if wl < 440:
-        r, g, b = -(wl - 440) / 60.0, 0.0, 1.0
-    elif wl < 490:
-        r, g, b = 0.0, (wl - 440) / 50.0, 1.0
-    elif wl < 510:
-        r, g, b = 0.0, 1.0, -(wl - 510) / 20.0
-    elif wl < 580:
-        r, g, b = (wl - 510) / 70.0, 1.0, 0.0
-    elif wl < 645:
-        r, g, b = 1.0, -(wl - 645) / 65.0, 0.0
-    else:
-        r, g, b = 1.0, 0.0, 0.0
+    if wl < 440: r, g, b = -(wl - 440) / 60.0, 0.0, 1.0
+    elif wl < 490: r, g, b = 0.0, (wl - 440) / 50.0, 1.0
+    elif wl < 510: r, g, b = 0.0, 1.0, -(wl - 510) / 20.0
+    elif wl < 580: r, g, b = (wl - 510) / 70.0, 1.0, 0.0
+    elif wl < 645: r, g, b = 1.0, -(wl - 645) / 65.0, 0.0
+    else: r, g, b = 1.0, 0.0, 0.0
     f = 1.0
-    if wl < 420:
-        f = 0.3 + 0.7 * (wl - 380) / 40.0
-    elif wl > 700:
-        f = 0.3 + 0.7 * (780 - wl) / 80.0
+    if wl < 420: f = 0.3 + 0.7 * (wl - 380) / 40.0
+    elif wl > 700: f = 0.3 + 0.7 * (780 - wl) / 80.0
     return tuple(int(v * 255 * f) for v in (r, g, b))
-
 
 def blend_color(c1, c2, alpha=1.0):
     return tuple(int(a * alpha + b * (1 - alpha)) for a, b in zip(c1, c2))
 
-
 def rgb2hex(rgb):
     return "#%02x%02x%02x" % rgb
 
-
 def get_epsilon(wl, key):
-    """查询指定波长处的摩尔吸光系数 ε"""
     sol = SOLUTIONS[key]
     if "spectrum" in sol:
-        idx = int(round(wl)) - 380
-        idx = max(0, min(400, idx))
+        idx = max(0, min(400, int(round(wl)) - 380))
         return sol["spectrum"][idx]
-    # 甲基橙：高斯峰模型
     eps = 0.0
     for center, height, width in sol.get("bands", []):
         eps += height * math.exp(-((wl - center) ** 2) / (2 * width ** 2))
     return eps
 
-
 def calc_absorbance(wl, conc_uM, path_cm, key, light_on=True):
-    if not light_on:
-        return 0.0
-    c_mol = conc_uM * 1e-6
-    eps = get_epsilon(wl, key)
-    A = eps * c_mol * path_cm + 0.002
-    return max(0.0, A)
-
+    if not light_on: return 0.0
+    return max(0.0, get_epsilon(wl, key) * (conc_uM * 1e-6) * path_cm + 0.002)
 
 def calc_transmittance(A, light_on=True):
-    if not light_on:
-        return 0.0
+    if not light_on: return 0.0
     return 100.0 * (10.0 ** (-A))
 
-
-def format_conc(val):
-    """将 μM 值格式化为 μM 或 mM 字符串"""
-    if val >= 1000:
-        return f"{val / 1000:.1f} mM"
-    return f"{val} µM"
-
-
 # ================= Streamlit 页面配置 =================
-st.set_page_config(page_title="朗伯-比尔定律仿真实验", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="朗伯-比尔定律仿真实验", layout="wide")
 
-# 初始化 Session State
-if 'conc' not in st.session_state:
-    st.session_state.conc = 20
-if 'sol_key' not in st.session_state:
-    st.session_state.sol_key = list(SOLUTIONS.keys())[0]
-if 'light_on' not in st.session_state:
-    st.session_state.light_on = True
-if 'mode' not in st.session_state:
-    st.session_state.mode = "吸光度 (A)"
-if 'wl' not in st.session_state:
-    st.session_state.wl = 464
-if 'path' not in st.session_state:
-    st.session_state.path = 1.0
-
-
-def clamp_conc_on_solution_change():
-    """切换溶液时，将浓度限制在新溶液允许的最大值内"""
-    cm = SOLUTIONS[st.session_state.sol_key]["conc_max"]
-    if st.session_state.conc > cm:
-        st.session_state.conc = cm
-
-
-def set_preset(ratio):
-    cm = SOLUTIONS[st.session_state.sol_key]["conc_max"]
-    st.session_state.conc = int(cm * ratio)
-
+if 'conc' not in st.session_state: st.session_state.conc = 20
+if 'sol_key' not in st.session_state: st.session_state.sol_key = list(SOLUTIONS.keys())[0]
+if 'light_on' not in st.session_state: st.session_state.light_on = True
+if 'mode' not in st.session_state: st.session_state.mode = "吸光度 (A)"
+if 'wl' not in st.session_state: st.session_state.wl = 464
 
 def reset_experiment():
     st.session_state.conc = 20
@@ -487,411 +364,290 @@ def reset_experiment():
     st.session_state.light_on = True
     st.session_state.mode = "吸光度 (A)"
     st.session_state.wl = 464
-    st.session_state.path = 1.0
 
+def set_preset(ratio):
+    cm = SOLUTIONS[st.session_state.sol_key]["conc_max"]
+    st.session_state.conc = int(cm * ratio)
 
-# ================= 滑块样式（渐变轨道 + 圆形彩色调节点） =================
-def slider_style(thumb_hex, gradient_css, thumb_shape="round", thumb_border="3px solid #ffffff"):
-    """注入 CSS，把 Streamlit 滑块改成渐变轨道 + 自绘调节点（圆/方）"""
-    radius = "50%" if thumb_shape == "round" else "3px"
-    return f"""
-    <style>
-    /* 调节点：圆形（随值变色）或矩形滑块 */
-    div[data-testid="stSlider"] [data-baseweb="slider"] div[role="slider"],
-    div[data-testid="stSlider"] [data-baseweb="slider"] div[data-testid="stSliderThumb"] {{
-        background: {thumb_hex} !important;
-        border: {thumb_border} !important;
-        box-shadow: 0 1px 5px rgba(0,0,0,0.45) !important;
-        border-radius: {radius} !important;
+sol_key = st.session_state.sol_key
+cm = SOLUTIONS[sol_key]["conc_max"]
+sol_hex = rgb2hex(SOLUTIONS[sol_key]["color"])
+wl = st.session_state.wl
+beam_hex = rgb2hex(wavelength_to_rgb(wl))
+
+# 【终极视觉复刻：大字体标题隐藏，特定组件注入渐变】
+st.markdown(f"""
+<style>
+    /* 隐藏原生的组件 Label，用我们自定义的粗体标题代替 */
+    div[data-testid="stWidgetLabel"] {{ display: none !important; }}
+    .custom-label {{ font-size: 16px; font-weight: bold; margin-top: 15px; margin-bottom: 5px; color: inherit; }}
+    
+    /* 滑块轨道通用背景透明 */
+    div[data-testid="stSlider"] div[data-baseweb="slider"] > div > div:first-child > div {{
+        background: transparent !important;
+        background-image: none !important;
     }}
-    /* 轨道：渐变背景 */
-    div[data-testid="stSlider"] [data-baseweb="slider"] > div > div {{
-        background-image: linear-gradient(to right, {gradient_css}) !important;
-        background-size: 100% 100% !important;
+    div[data-testid="stSlider"] div[data-baseweb="slider"] > div > div:first-child {{
+        height: 12px !important;
+        border-radius: 4px !important;
     }}
-    </style>
-    """
 
+    /* ===== 波长调节 ===== */
+    div[data-testid="stSlider"]:has([aria-label*="波长"]) div[data-baseweb="slider"] > div > div:first-child {{
+        background: linear-gradient(to right, #6a00ff, #0000ff, #00ffff, #00ff00, #ffff00, #ff7f00, #ff0000, #6a0000) !important;
+    }}
+    div[data-testid="stSlider"]:has([aria-label*="波长"]) [role="slider"] {{
+        background-color: {beam_hex} !important;
+        border: 3px solid white !important;
+        width: 20px !important;
+        height: 20px !important;
+        margin-top: -4px !important;
+        border-radius: 50% !important;
+        box-shadow: 0 0 4px rgba(0,0,0,0.5) !important;
+    }}
 
-def rainbow_gradient():
-    """波长 380→780 七彩渐变 CSS"""
-    stops = []
-    for wl in range(380, 781, 20):
-        stops.append(f"{rgb2hex(wavelength_to_rgb(wl))} {100 * (wl - 380) / 400:.2f}%")
-    return ", ".join(stops)
+    /* ===== 浓度调节 ===== */
+    div[data-testid="stSlider"]:has([aria-label*="浓度"]) div[data-baseweb="slider"] > div > div:first-child {{
+        background: linear-gradient(to right, rgba(255,255,255,0.2), {sol_hex}) !important;
+        border: 1px solid rgba(128,128,128,0.3) !important;
+    }}
+    div[data-testid="stSlider"]:has([aria-label*="浓度"]) [role="slider"] {{
+        background-color: white !important;
+        border: 4px solid {sol_hex} !important;
+        width: 18px !important;
+        height: 18px !important;
+        margin-top: -3px !important;
+        border-radius: 50% !important;
+    }}
 
+    /* ===== 光程长度 ===== */
+    div[data-testid="stSlider"]:has([aria-label*="光程"]) div[data-baseweb="slider"] > div > div:first-child {{
+        background: #666 !important;
+    }}
+    div[data-testid="stSlider"]:has([aria-label*="光程"]) [role="slider"] {{
+        background-color: white !important;
+        border: 2px solid #999 !important;
+        width: 16px !important;
+        height: 16px !important;
+        margin-top: -2px !important;
+        border-radius: 50% !important;
+    }}
+</style>
+""", unsafe_allow_html=True)
 
-def conc_gradient(key):
-    """浓度渐变条：白 → 浅色 → 溶液本色（由浅到深，暖色层次）"""
-    base_c = SOLUTIONS[key]["color"]
-    base = rgb2hex(base_c)
-    light = rgb2hex(blend_color(base_c, (255, 255, 255), 0.72))
-    return f"#ffffff 0%, {light} 45%, {base} 100%"
-
-
-st.markdown(
-    '<div style="background:#2c5aa0;color:#ffffff;padding:14px 22px;border-radius:8px;'
-    'font-size:26px;font-weight:bold;font-family:\'Microsoft YaHei\',sans-serif;">'
-    '🧪 朗伯-比尔定律仿真实验</div>',
-    unsafe_allow_html=True)
+st.title("🧪 朗伯-比尔定律仿真实验")
 st.caption("Lambert-Beer Law · A = εbc = lg(1/T)")
 
-# ================= 左侧调节栏 =================
 with st.sidebar:
-    st.header("实验参数设置")
-
-    sol_key = st.selectbox(
-        "选择溶液",
-        options=list(SOLUTIONS.keys()),
-        format_func=lambda k: SOLUTIONS[k]["name"],
-        key="sol_key",
-        on_change=clamp_conc_on_solution_change,
-    )
-
-    mode = st.radio("测量模式", ["吸光度 (A)", "透射率 (T%)"], key="mode", horizontal=True)
-
-    # ---- 浓度调节：溶液色渐变条 + 白边圆形调节点 ----
-    cm = SOLUTIONS[sol_key]["conc_max"]
-    step_val = max(1, cm // 100)
-    st.markdown("⚗️ **浓度调节**")
-    conc = st.slider(
-        "浓度 (μM)",
-        min_value=0, max_value=cm,
-        value=st.session_state.conc,
-        step=step_val,
-        key="conc",
-        label_visibility="collapsed",
-    )
-    st.markdown(slider_style(rgb2hex(SOLUTIONS[sol_key]["color"]), conc_gradient(sol_key)),
-                unsafe_allow_html=True)
-    st.markdown(
-        f"<div style='color:#555;font-size:13px;'>当前浓度："
-        f"<b style='color:#2c5aa0;font-size:15px;'>{format_conc(conc)}</b></div>",
-        unsafe_allow_html=True)
-
-    # ---- 光程长度：灰色长条 + 白底黑边矩形调节块 ----
-    st.markdown("📏 **光程长度 (cm)**")
-    path = st.slider(
-        "光程",
-        min_value=0.5, max_value=2.0,
-        value=st.session_state.path,
-        step=0.1,
-        key="path",
-        label_visibility="collapsed",
-    )
-    st.markdown(slider_style("#ffffff", "#d5d9de", thumb_shape="rect", thumb_border="2px solid #333333"),
-                unsafe_allow_html=True)
-    st.markdown(
-        f"<div style='color:#555;font-size:13px;'>当前光程："
-        f"<b style='color:#2c5aa0;font-size:15px;'>{path:.1f} cm</b></div>",
-        unsafe_allow_html=True)
-
-    # ---- 波长调节：七彩渐变条 + 彩色圆点 ----
-    st.markdown("🌈 **波长调节 (nm)**")
-    wl = st.slider(
-        "波长",
-        min_value=380, max_value=780,
-        value=st.session_state.wl,
-        key="wl",
-        label_visibility="collapsed",
-    )
-    wl_thumb = rgb2hex(wavelength_to_rgb(wl))
-    st.markdown(slider_style(wl_thumb, rainbow_gradient()), unsafe_allow_html=True)
-    st.markdown(
-        f"<div style='color:#555;font-size:13px;'>当前波长："
-        f"<b style='color:#2c5aa0;font-size:15px;'>{wl} nm</b></div>",
-        unsafe_allow_html=True)
-
-    st.write("💡 快捷预设")
-    col1, col2, col3, col4 = st.columns(4)
-    col1.button("空白", on_click=set_preset, args=(0,), use_container_width=True)
-    col2.button("稀", on_click=set_preset, args=(0.15,), use_container_width=True)
-    col3.button("中", on_click=set_preset, args=(0.5,), use_container_width=True)
-    col4.button("浓", on_click=set_preset, args=(1.0,), use_container_width=True)
-
-    light_on = st.toggle("🔦 开灯 / 关灯", value=st.session_state.light_on)
-    st.session_state.light_on = light_on
-
+    # 选择溶液
+    st.markdown('<div class="custom-label">🧪 选择溶液</div>', unsafe_allow_html=True)
+    st.selectbox("选择溶液", options=list(SOLUTIONS.keys()), format_func=lambda k: SOLUTIONS[k]["name"], key="sol_key")
+    
+    # 测量模式
+    st.markdown('<div class="custom-label">📊 测量模式</div>', unsafe_allow_html=True)
+    st.radio("测量模式", ["吸光度 (A)", "透射率 (T%)"], key="mode", horizontal=True)
+    
+    # 浓度调节
+    st.markdown('<div class="custom-label">⚗️ 浓度调节</div>', unsafe_allow_html=True)
+    st.slider(f"浓度调节 ({SOLUTIONS[sol_key]['conc_label']})", min_value=0, max_value=cm, value=st.session_state.conc, step=max(1, cm//100), key="conc")
+    
+    # 光程长度
+    st.markdown('<div class="custom-label">📏 光程长度 (cm)</div>', unsafe_allow_html=True)
+    st.slider("光程长度 (cm)", 0.5, 2.0, 1.0, 0.1, key="path")
+    
+    # 波长调节
+    st.markdown('<div class="custom-label">🌈 波长调节 (nm)</div>', unsafe_allow_html=True)
+    st.slider("波长调节 (nm)", 380, 780, key="wl")
+    
+    # 快捷预设
+    st.markdown('<div class="custom-label">💡 快捷预设</div>', unsafe_allow_html=True)
+    c1, c2, c3, c4 = st.columns(4)
+    c1.button("空白", on_click=set_preset, args=(0,), use_container_width=True)
+    c2.button("稀", on_click=set_preset, args=(0.15,), use_container_width=True)
+    c3.button("中", on_click=set_preset, args=(0.5,), use_container_width=True)
+    c4.button("浓", on_click=set_preset, args=(1.0,), use_container_width=True)
+    
+    st.markdown('<div style="margin-top: 20px;"></div>', unsafe_allow_html=True)
+    # 开灯/关灯
+    st.button("🔦 开灯 / 关灯", on_click=lambda: st.session_state.update(light_on=not st.session_state.light_on), use_container_width=True)
+    # 重置实验
     st.button("🔄 重置实验", on_click=reset_experiment, use_container_width=True, type="primary")
 
-# ================= 数值计算 =================
+# 数值计算
+wl = st.session_state.wl
+conc = st.session_state.conc
+path = st.session_state.path
+light_on = st.session_state.light_on
+mode = st.session_state.mode
+
 A = calc_absorbance(wl, conc, path, sol_key, light_on)
 T = calc_transmittance(A, light_on)
-sol = SOLUTIONS[sol_key]
 beam_rgb = wavelength_to_rgb(wl)
-eps_val = get_epsilon(wl, sol_key)
 
-m1, m2, m3 = st.columns(3)
-if not light_on:
-    m1.metric("吸光度 (A)", "---")
-    m2.metric("透射率 (T%)", "---")
-else:
-    m1.metric("吸光度 (A)", f"{A:.3f}")
-    if T >= 0.01:
-        m2.metric("透射率 (T%)", f"{T:.2f}")
-    else:
-        m2.metric("透射率 (T%)", f"{T:.2e}")
-m3.metric("当前波长", f"{wl} nm")
-st.caption(f"📌 ε({wl} nm) = {eps_val:.3f} L·mol⁻¹·cm⁻¹ ｜ 光程 {path:.1f} cm ｜ 浓度 {format_conc(conc)}")
+# 顶部数据卡片
+col1, col2, col3 = st.columns(3)
+col1.metric("吸光度 (A)", f"{A:.3f}" if light_on else "---")
+col2.metric("透射率 (T%)", f"{T:.2f}" if T >= 0.01 else f"{T:.2e}" if light_on else "---")
+col3.metric("当前波长", f"{wl} nm")
 
-# ================= 中部：实验场景（SVG） =================
-st.subheader("实验场景")
-with st.container():
-    cy = 200
-    sol_h = 250
-    beam_h = 68                       # 光线加粗
-    half = 25 + 40 * path
-    bx0, bx1 = 500 - half, 500 + half
-    lx, det_x = 170, 830
+st.divider()
+left_col, right_col = st.columns([1.2, 1])
+
+# ================= 左侧：高精度 SVG 场景 =================
+with left_col:
     depth = min(1.0, conc / cm) if cm > 0 else 0
-    liquid_rgb = blend_color(sol["color"], (255, 255, 255), 0.15 + 0.85 * depth)
+    alpha = 0.1 + 0.9 * depth
+    liquid_rgb = blend_color(SOLUTIONS[sol_key]["color"], (255, 255, 255), alpha)
     liquid_hex = rgb2hex(liquid_rgb)
     beam_hex = rgb2hex(beam_rgb)
     T_ratio = max(0.0, T / 100.0)
 
-    # ---- 光束（透射质感：颜色饱和度逐层降低 + 透明度渐增 + 宽度略收窄）----
+    cy = 200
+    half = 25 + 40 * path
+    bx0, bx1 = 400 - half, 400 + half
+    lx, det_x = 160, 750
+    sol_h, beam_h = 240, 50 
+
     beam_rects = ""
     if light_on:
-        # 入射光（光源 → 烧杯左壁）：粗实饱和
-        beam_rects += (
-            f'<rect x="{lx}" y="{cy - beam_h / 2}" width="{bx0 - lx}" '
-            f'height="{beam_h}" fill="{beam_hex}" opacity="0.92" />'
-        )
-        # 溶液中光：越深入颜色越浅（饱和度降低）、透明度逐渐增强、宽度弱化
-        N = 36
+        c_rects = f'<rect x="{lx}" y="{cy-beam_h/2}" width="{bx0-lx}" height="{beam_h}" fill="{beam_hex}" />'
+        N = 50
         sw = (bx1 - bx0) / N
         for k in range(N):
             u = (k + 0.5) / N
-            intensity = 1.0 - u * (1.0 - T_ratio)          # 光强 1.0 → T_ratio
-            op = max(0.05, 0.92 * intensity)               # 透明度逐渐增强
-            seg_rgb = blend_color(beam_rgb, (255, 255, 255), 1.0 - 0.62 * u)  # 饱和度逐层降低
-            seg_hex = rgb2hex(seg_rgb)
-            seg_h = beam_h * (1.0 - 0.20 * u)              # 宽度视觉弱化
-            beam_rects += (
-                f'<rect x="{bx0 + k * sw}" y="{cy - seg_h / 2:.1f}" '
-                f'width="{sw + 1}" height="{seg_h:.1f}" fill="{seg_hex}" opacity="{op:.3f}" />'
-            )
-        # 透出溶液的光：更浅淡，直达检测器镜头
-        out_op = max(0.06, T_ratio * 0.85)
-        out_rgb = blend_color(beam_rgb, (255, 255, 255), 0.55)
-        out_hex = rgb2hex(out_rgb)
-        out_h = beam_h * 0.78
-        beam_rects += (
-            f'<rect x="{bx1}" y="{cy - out_h / 2:.1f}" width="{det_x - 34 - bx1}" '
-            f'height="{out_h:.1f}" fill="{out_hex}" opacity="{out_op:.3f}" />'
-        )
+            local_light = 1.0 - u * (1.0 - T_ratio)
+            overlay_weight = max(0.0, min(0.9, local_light * (0.9 - 0.5 * depth)))
+            seg_color = blend_color(beam_rgb, liquid_rgb, overlay_weight)
+            c_rects += f'<rect x="{bx0 + k*sw}" y="{cy-beam_h/2}" width="{sw+1}" height="{beam_h}" fill="{rgb2hex(seg_color)}" />'
+        
+        out_alpha = max(0.05, T_ratio)
+        out_rgb = blend_color(beam_rgb, (255, 255, 255), out_alpha)
+        c_rects += f'<rect x="{bx1}" y="{cy-beam_h/2}" width="{det_x-bx1}" height="{beam_h}" fill="{rgb2hex(out_rgb)}" />'
+        beam_rects = c_rects
 
-    # ---- 悬浮屏数值 ----
-    if not light_on:
-        fmt = "---"
+    if not light_on: fmt = "---"
     else:
         val = A if mode == "吸光度 (A)" else T
         fmt = f"{val:.3f}" if mode == "吸光度 (A)" else (f"{val:.2f}" if val >= 0.01 else f"{val:.2e}")
 
-    bulb_fil = "#ffffff" if light_on else "#8a8f96"      # 灯体内波浪标识颜色
-    bulb_body = beam_hex if light_on else "#9aa0a6"      # 圆形灯体颜色
-    halo_op = 0.65 if light_on else 0.0
-
     svg_html = f"""
-    <svg viewBox="0 0 1000 430" style="width:100%; height:auto; background:white; border:1px solid #ccc; border-radius:8px; font-family:'Microsoft YaHei',sans-serif;">
-      <defs>
-        <radialGradient id="halo">
-          <stop offset="0%" stop-color="{beam_hex}" stop-opacity="{halo_op}"/>
-          <stop offset="100%" stop-color="{beam_hex}" stop-opacity="0"/>
-        </radialGradient>
-        <radialGradient id="bulbGlass">
-          <stop offset="0%" stop-color="#ffffff" stop-opacity="0.96"/>
-          <stop offset="55%" stop-color="{bulb_body}" stop-opacity="0.55"/>
-          <stop offset="100%" stop-color="{bulb_body}" stop-opacity="0.92"/>
-        </radialGradient>
-        <linearGradient id="detBody" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stop-color="#2e6b2e"/>
-          <stop offset="45%" stop-color="#3a7a3a"/>
-          <stop offset="100%" stop-color="#265926"/>
-        </linearGradient>
-      </defs>
+    <svg viewBox="0 0 900 400" style="width:100%; height:auto; background:white; border:1px solid #ccc; border-radius:8px; font-family: 'Microsoft YaHei', sans-serif;">
+        <defs>
+            <radialGradient id="halo">
+                <stop offset="0%" stop-color="{beam_hex}" stop-opacity="0.8"/>
+                <stop offset="100%" stop-color="{beam_hex}" stop-opacity="0"/>
+            </radialGradient>
+            <radialGradient id="glass">
+                <stop offset="0%" stop-color="white" stop-opacity="0.6"/>
+                <stop offset="100%" stop-color="{beam_hex}" stop-opacity="0.2"/>
+            </radialGradient>
+            <linearGradient id="detBody" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#2a5a2a"/>
+                <stop offset="50%" stop-color="#4a9b4a"/>
+                <stop offset="100%" stop-color="#1f4f1f"/>
+            </linearGradient>
+        </defs>
+        
+        <text x="20" y="35" fill="#2c5aa0" font-size="28" font-weight="bold" font-family="Times New Roman, serif">A = εbc = lg(1/T)</text>
+        <rect x="{bx0}" y="{cy-sol_h/2}" width="{bx1-bx0}" height="{sol_h}" fill="{liquid_hex}" />
+        <g opacity="0.85">
+            {beam_rects}
+        </g>
+        <line x1="{bx0}" y1="{cy-sol_h/2-20}" x2="{bx0}" y2="{cy+sol_h/2}" stroke="#222" stroke-width="4"/>
+        <line x1="{bx1}" y1="{cy-sol_h/2-20}" x2="{bx1}" y2="{cy+sol_h/2}" stroke="#222" stroke-width="4"/>
+        <line x1="{bx0}" y1="{cy+sol_h/2}" x2="{bx1}" y2="{cy+sol_h/2}" stroke="#222" stroke-width="4"/>
+        
+        <g transform="translate({lx}, {cy})">
+            <path d="M -25 30 L 25 30 L 20 55 L -20 55 Z" fill="#444" stroke="#222" stroke-width="2"/>
+            {"<circle cx='0' cy='0' r='45' fill='url(#halo)'/>" if light_on else ""}
+            <circle cx="0" cy="0" r="32" fill="{'url(#glass)' if light_on else '#e0e0e0'}" stroke="{beam_hex if light_on else '#999'}" stroke-width="3"/>
+            <path d="M -12 15 L -12 -2 L -6 -8 L -2 4 L 2 -8 L 6 4 L 12 -2 L 12 15" fill="none" stroke="{'white' if light_on else '#666'}" stroke-width="2.5" stroke-linejoin="round"/>
+        </g>
+        <text x="{lx}" y="{cy+85}" text-anchor="middle" fill="#333" font-weight="bold" font-size="18">光源</text>
+        
+        <g transform="translate({det_x}, {cy})">
+            <path d="M 0 90 C 0 160, 150 160, 150 50" fill="none" stroke="#777" stroke-width="6"/>
+            <rect x="-25" y="40" width="50" height="50" fill="url(#detBody)" stroke="#1f4f1f" stroke-width="2" rx="4"/>
+            <line x1="-15" y1="55" x2="15" y2="55" stroke="#1f4f1f" stroke-width="3"/>
+            <line x1="-15" y1="70" x2="15" y2="70" stroke="#1f4f1f" stroke-width="3"/>
+            <circle cx="0" cy="0" r="50" fill="url(#detBody)" stroke="#1f4f1f" stroke-width="3"/>
+            <circle cx="0" cy="0" r="30" fill="{'#e0ffff' if light_on else '#aaa'}" stroke="white" stroke-width="3"/>
+            <path d="M -30 0 A 30 30 0 0 1 30 0 Z" fill="#aadddd" opacity="0.5"/>
+        </g>
+        
+        <rect x="700" y="20" width="180" height="110" fill="#3a7a3a" stroke="#1f4f1f" stroke-width="3" rx="4"/>
+        <rect x="715" y="30" width="150" height="55" fill="#e8f5e9" stroke="#1f4f1f" stroke-width="2"/>
+        <text x="790" y="70" text-anchor="middle" fill="#111" font-family="Courier New, monospace" font-size="32" font-weight="bold">{fmt}</text>
+        <text x="790" y="110" text-anchor="middle" fill="white" font-size="16" font-weight="bold">{"吸光度 A" if mode == "吸光度 (A)" else "透射率 T%"}</text>
 
-      <!-- 公式 -->
-      <text x="20" y="38" fill="#2c5aa0" font-size="30" font-weight="bold" font-family="Times New Roman,serif">A = εbc = lg(1/T)</text>
-
-      <!-- 烧杯液体（半透明，光可以透出） -->
-      <rect x="{bx0}" y="{cy - sol_h / 2}" width="{bx1 - bx0}" height="{sol_h}" fill="{liquid_hex}" opacity="0.9" />
-
-      <!-- 光束 -->
-      {beam_rects}
-
-      <!-- 烧杯边框（玻璃质感） -->
-      <line x1="{bx0}" y1="{cy - sol_h / 2 - 20}" x2="{bx0}" y2="{cy + sol_h / 2}" stroke="#222" stroke-width="4"/>
-      <line x1="{bx1}" y1="{cy - sol_h / 2 - 20}" x2="{bx1}" y2="{cy + sol_h / 2}" stroke="#222" stroke-width="4"/>
-      <line x1="{bx0}" y1="{cy + sol_h / 2}" x2="{bx1}" y2="{cy + sol_h / 2}" stroke="#222" stroke-width="4"/>
-      <!-- 液面 -->
-      <line x1="{bx0}" y1="{cy - sol_h / 2}" x2="{bx1}" y2="{cy - sol_h / 2}" stroke="#ffffff" stroke-width="3" opacity="0.7"/>
-
-      <!-- 光源：圆形发光灯体 + 波浪标识（参考图样式） -->
-      <g>
-        <circle cx="{lx}" cy="{cy - 12}" r="52" fill="url(#halo)"/>
-        <!-- 深灰梯形底座 -->
-        <path d="M{lx - 22} {cy + 20} L{lx - 22} {cy + 44} L{lx + 22} {cy + 44} L{lx + 22} {cy + 20} Z" fill="#4a4a4a" stroke="#2a2a2a" stroke-width="2"/>
-        <path d="M{lx - 28} {cy + 44} L{lx + 28} {cy + 44} L{lx + 28} {cy + 52} L{lx - 28} {cy + 52} Z" fill="#333333"/>
-        <!-- 圆形发光灯体 -->
-        <circle cx="{lx}" cy="{cy - 12}" r="34" fill="url(#bulbGlass)" stroke="#9fc6e8" stroke-width="2"/>
-        <!-- 灯体内白色波浪形发光标识 -->
-        <path d="M{lx - 18} {cy - 14} Q {lx - 9} {cy - 27} {lx} {cy - 14} T {lx + 18} {cy - 14}" fill="none" stroke="{bulb_fil}" stroke-width="3.5" stroke-linecap="round"/>
-        <path d="M{lx - 18} {cy + 1} Q {lx - 9} {cy - 12} {lx} {cy + 1} T {lx + 18} {cy + 1}" fill="none" stroke="{bulb_fil}" stroke-width="3.5" stroke-linecap="round"/>
-      </g>
-      <text x="{lx}" y="{cy + 78}" text-anchor="middle" fill="#333" font-size="22" font-weight="bold">光源</text>
-
-      <!-- 检测器（深绿立式结构 + 圆形感光窗），光束直达镜头 -->
-      <g>
-        <!-- 支架 -->
-        <rect x="{det_x - 24}" y="{cy + 55}" width="48" height="18" rx="4" fill="#555555" stroke="#333333" stroke-width="2"/>
-        <!-- 主体：圆角柱 + 渐变立体感 -->
-        <rect x="{det_x - 34}" y="{cy - 62}" width="68" height="118" rx="14" fill="url(#detBody)" stroke="#1f4f1f" stroke-width="2"/>
-        <!-- 高光 -->
-        <rect x="{det_x - 24}" y="{cy - 52}" width="10" height="98" rx="5" fill="#66aa66" opacity="0.55"/>
-        <!-- 镜头外圈 -->
-        <circle cx="{det_x}" cy="{cy}" r="36" fill="#2e6b2e" stroke="#1f4f1f" stroke-width="3"/>
-        <!-- 感光窗（浅白圆） -->
-        <circle cx="{det_x}" cy="{cy}" r="24" fill="#e0ffff" stroke="#ffffff" stroke-width="2"/>
-        <ellipse cx="{det_x - 7}" cy="{cy - 7}" rx="6" ry="9" fill="#ffffff" opacity="0.5"/>
-        <!-- 灰色连线：检测器 → 吸光度显示牌 -->
-        <path d="M{det_x - 22} {cy - 58} L {det_x - 22} {cy - 118} L {786} {cy - 118} L {786} {124}" fill="none" stroke="#777777" stroke-width="4" stroke-linecap="round"/>
-      </g>
-
-      <!-- 悬浮屏：A/T 大字体 -->
-      <rect x="770" y="22" width="210" height="122" rx="6" fill="#3a7a3a" stroke="#1f4f1f" stroke-width="3"/>
-      <rect x="785" y="32" width="180" height="60" fill="#e8f5e9" stroke="#1f4f1f" stroke-width="2"/>
-      <text x="875" y="78" text-anchor="middle" fill="#111111" font-family="Courier New,monospace" font-size="42" font-weight="bold">{fmt}</text>
-      <text x="875" y="128" text-anchor="middle" fill="#ffffff" font-size="22" font-weight="bold">{"吸光度 A" if mode == "吸光度 (A)" else "透射率 T%"}</text>
-
-      <!-- 波长与透射率进度条 -->
-      <text x="500" y="42" text-anchor="middle" fill="{beam_hex}" font-size="21" font-weight="bold">λ = {wl} nm</text>
-      <rect x="380" y="385" width="240" height="16" fill="#dddddd" stroke="#999999"/>
-      <rect x="380" y="385" width="{240 * T_ratio}" height="16" fill="{beam_hex}"/>
-      <text x="500" y="422" text-anchor="middle" fill="#444444" font-size="15">透射率: {T if light_on else 0.0:.2f}%</text>
+        <text x="400" y="40" text-anchor="middle" fill="{beam_hex}" font-size="22" font-weight="bold">λ = {wl} nm</text>
+        <rect x="280" y="360" width="240" height="15" fill="#ddd" stroke="#999" rx="7"/>
+        <rect x="280" y="360" width="{240 * T_ratio}" height="15" fill="{beam_hex}" rx="7"/>
+        <text x="400" y="395" text-anchor="middle" fill="#444" font-size="16">透射率: {T if light_on else 0.0:.2f}%</text>
     </svg>
     """
-    components.html(svg_html, height=440)
+    components.html(svg_html, height=420)
 
-# ================= 底部：光谱曲线 + 数据表格 =================
-left_col, right_col = st.columns([1.35, 1])
-
-with left_col:
-    st.subheader("光谱吸收曲线")
+# ================= 右侧：高对比度图表 =================
+with right_col:
+    st.subheader("光谱曲线分析")
     wls = list(range(380, 781, 2))
     Abs = [calc_absorbance(w, conc, path, sol_key, light_on) for w in wls]
     y_vals = Abs if mode == "吸光度 (A)" else [calc_transmittance(a, light_on) for a in Abs]
-
-    # 纵轴自适应：小吸光度时也拉开间距，凸显波峰
-    max_val = max(y_vals) if y_vals else 0.0
-    auto_zoom = st.checkbox("🔍 Y轴自动缩放（凸显波峰）", value=True)
+    
+    max_val = max(y_vals) if len(y_vals) > 0 else 0
     if mode == "吸光度 (A)":
-        if auto_zoom:
-            max_y = max(0.01, max_val * 1.25)
-        else:
-            max_y = max(0.2, max_val * 1.2)
-        tickfmt = ".4g"
+        max_y = max(0.2, max_val * 1.15)
     else:
-        max_y = min(100.0, max(5.0, max_val * 1.2))
-        tickfmt = ".0f"
-
-    curve_color = rgb2hex(sol["color"])
+        max_y = min(100.0, max(10.0, max_val * 1.15))
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=wls, y=y_vals, mode='lines',
-        line=dict(color=curve_color, width=3),
-        fill='tozeroy',
-        name='光谱曲线'
-    ))
+    fig.add_trace(go.Scatter(x=wls, y=y_vals, mode='lines', line=dict(color='#2c5aa0', width=3), name='光谱'))
+    
     cur_y = A if mode == "吸光度 (A)" else T
-    fig.add_trace(go.Scatter(
-        x=[wl], y=[cur_y], mode='markers',
-        marker=dict(color='#ff6b6b', size=12, line=dict(color='white', width=2)),
-        name='当前波长点'
-    ))
+    fig.add_trace(go.Scatter(x=[wl], y=[cur_y], mode='markers', marker=dict(color='#ff6b6b', size=12, line=dict(color='white', width=2)), name='当前点'))
+    
     fig.update_layout(
-        margin=dict(l=10, r=10, t=20, b=10),
-        xaxis=dict(title="波长 (nm)", range=[380, 780], dtick=50),
-        yaxis=dict(title="吸光度 A" if mode == "吸光度 (A)" else "透射率 T%",
-                   range=[0, max_y], tickformat=tickfmt),
-        plot_bgcolor="white",
-        showlegend=False,
-        height=380,
-        font=dict(size=14),
+        margin=dict(l=10, r=10, t=40, b=10), 
+        plot_bgcolor="white", 
+        height=350,
+        showlegend=False
+    )
+    fig.update_xaxes(
+        title_text="波长 (nm)", 
+        title_font=dict(size=16), 
+        range=[380, 780], 
+        tickfont=dict(size=14),
+        showgrid=True, gridwidth=1, gridcolor='#eee'
+    )
+    fig.update_yaxes(
+        title_text="吸光度 A" if mode == "吸光度 (A)" else "透射率 T%", 
+        title_font=dict(size=16), 
+        range=[0, max_y], 
+        tickfont=dict(size=14),
+        showgrid=True, gridwidth=1, gridcolor='#eee'
     )
     st.plotly_chart(fig, use_container_width=True)
 
-with right_col:
-    st.subheader("多波长数据")
-    # 大字排版 HTML 表格
-    rows_html = ""
-    wavelengths = (380, 450, 520, 590, 660)
-    for i, w in enumerate(wavelengths):
-        a_val = calc_absorbance(w, conc, path, sol_key, light_on)
-        t_val = calc_transmittance(a_val, light_on)
-        eps_w = get_epsilon(w, sol_key)
-        if not light_on:
-            t_str = "---"
-        else:
-            t_str = f"{t_val:.2f}" if t_val >= 0.1 else f"{t_val:.2e}"
-        bg = "#f4f6f9" if i % 2 == 0 else "#ffffff"
-        rows_html += (
-            f'<tr style="background:{bg};">'
-            f'<td style="padding:10px 8px;text-align:center;border:1px solid #cccccc;color:#222;">{w}</td>'
-            f'<td style="padding:10px 8px;text-align:center;border:1px solid #cccccc;color:#222;">{eps_w:.1f}</td>'
-            f'<td style="padding:10px 8px;text-align:center;border:1px solid #cccccc;color:#222;font-weight:bold;">{a_val:.3f}</td>'
-            f'<td style="padding:10px 8px;text-align:center;border:1px solid #cccccc;color:#222;">{t_str}</td>'
-            f'</tr>'
-        )
-    table_html = f"""
-    <div style="border:1.5px solid #aaaaaa;border-radius:6px;overflow:hidden;">
-      <table style="width:100%;border-collapse:collapse;font-size:16px;font-family:'Microsoft YaHei',sans-serif;">
-        <thead>
-          <tr style="background:#eef1f5;">
-            <th style="padding:11px 8px;border:1px solid #cccccc;color:#111;font-weight:bold;">波长 (nm)</th>
-            <th style="padding:11px 8px;border:1px solid #cccccc;color:#111;font-weight:bold;">ε</th>
-            <th style="padding:11px 8px;border:1px solid #cccccc;color:#111;font-weight:bold;">吸光度 A</th>
-            <th style="padding:11px 8px;border:1px solid #cccccc;color:#111;font-weight:bold;">透射率 T%</th>
-          </tr>
-        </thead>
-        <tbody>{rows_html}</tbody>
-      </table>
-    </div>
-    """
-    st.markdown(table_html, unsafe_allow_html=True)
+# ================= 底部数据表格 =================
+st.subheader("多波长数据表格")
 
-    csv_lines = ["波长(nm),吸光度A,透射率T%"]
-    for w in range(380, 781):
-        a_val = calc_absorbance(w, conc, path, sol_key, light_on)
-        t_val = calc_transmittance(a_val, light_on)
-        csv_lines.append(f"{w},{a_val:.6f},{t_val:.6f}")
-    csv_data = "\n".join(csv_lines)
-    st.download_button(
-        "📥 下载全光谱数据 (CSV)",
-        data=csv_data,
-        file_name=f"spectrum_{sol_key}.csv",
-        mime="text/csv",
-        use_container_width=True,
-    )
+rows_html = """
+<style>
+    .data-table { width: 100%; border-collapse: collapse; font-family: 'Arial', sans-serif; font-size: 18px; text-align: center; }
+    .data-table th { background-color: #f0f4f8; color: #333; padding: 12px; border-bottom: 2px solid #ccc; font-weight: bold; }
+    .data-table td { padding: 12px; border-bottom: 1px solid #eee; color: #111; }
+    .data-table tr:hover { background-color: #f9f9f9; }
+</style>
+<table class="data-table">
+    <tr><th>波长 (nm)</th><th>吸光度 A</th><th>透射率 T%</th></tr>
+"""
+for w in (380, 450, 520, 590, 660):
+    a_val = calc_absorbance(w, conc, path, sol_key, light_on)
+    t_val = calc_transmittance(a_val, light_on)
+    t_str = f"{t_val:.2f}" if t_val >= 0.1 else f"{t_val:.2e}"
+    if not light_on: t_str = "---"
+    rows_html += f"<tr><td>{w}</td><td>{a_val:.3f}</td><td>{t_str}</td></tr>"
+rows_html += "</table>"
 
-# ================= 实验说明 =================
-with st.expander("📖 实验说明与操作指南"):
-    st.markdown("""
-**朗伯-比尔定律（Lambert-Beer Law）**
-
-当一束单色光穿过均匀溶液时，吸光度与浓度、光程成正比：
-
-> **A = ε·b·c = lg(1/T)**
-
-其中 A 为吸光度，T 为透射率（0~1），ε 为摩尔吸光系数（L·mol⁻¹·cm⁻¹），b 为光程（cm），c 为物质的量浓度（mol/L）。
-
-**操作步骤**
-1. 在左侧面板选择溶液、测量模式（吸光度/透射率）、浓度、光程和波长；
-2. 浓度调节条颜色随溶液变化（由浅到深），波长调节条为七彩渐变，调节点为彩色圆点；
-3. 观察场景中光束穿过溶液后逐渐变透明（被吸收），透出光强度与透射率一致；
-4. 光谱曲线随溶液切换为各自特征吸收曲线，红色圆点标记当前波长；
-5. 可下载全光谱数据（CSV）用于进一步分析。
-
-**提示**：切换溶液时浓度自动限制在新溶液上限内；快捷预设（空白/稀/中/浓）可将浓度设为上限的 0 / 15% / 50% / 100%。
-""")
+st.markdown(rows_html, unsafe_allow_html=True)
