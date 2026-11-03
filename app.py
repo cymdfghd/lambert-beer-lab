@@ -349,13 +349,9 @@ def calc_transmittance(A, light_on=True):
     if not light_on: return 0.0
     return 100.0 * (10.0 ** (-A))
 
-def format_conc(val):
-    return f"{val / 1000:.1f} mM" if val >= 1000 else f"{val} µM"
-
-# ================= Streamlit 页面配置与 CSS =================
+# ================= Streamlit 页面配置 =================
 st.set_page_config(page_title="朗伯-比尔定律仿真实验", layout="wide")
 
-# 初始化状态
 if 'conc' not in st.session_state: st.session_state.conc = 20
 if 'sol_key' not in st.session_state: st.session_state.sol_key = list(SOLUTIONS.keys())[0]
 if 'light_on' not in st.session_state: st.session_state.light_on = True
@@ -379,77 +375,61 @@ sol_hex = rgb2hex(SOLUTIONS[sol_key]["color"])
 wl = st.session_state.wl
 beam_hex = rgb2hex(wavelength_to_rgb(wl))
 
-# 注入深度定制的 CSS 控制滑块轨道和滑块点，强行覆盖原生组件
+# 【核心修改：更深层、更暴力的 CSS 覆盖，适配最新版 Streamlit】
 st.markdown(f"""
 <style>
-    /* 隐藏所有滑块底部的默认填充进度条，暴露出底轨 */
-    div[data-testid="stSlider"] div[data-baseweb="slider"] > div > div:first-child > div {{
+    /* 1. 全盘隐藏进度填充条（那条红色的线） */
+    div[data-testid="stSlider"] div[data-baseweb="slider"] > div > div > div {{
         background: transparent !important;
+        background-image: none !important;
+    }}
+    
+    /* 2. 设置底轨高度和圆角 */
+    div[data-testid="stSlider"] div[data-baseweb="slider"] > div > div {{
+        height: 12px !important;
+        border-radius: 3px !important;
     }}
 
-    /* ===== 波长调节滑块 ===== */
-    /* 波长底轨（彩虹渐变，直角，加粗） */
-    div[data-testid="stSlider"]:has([aria-label*="波长调节"]) div[data-baseweb="slider"] > div > div:first-child {{
+    /* ===== 波长滑块定制 ===== */
+    div[data-testid="stSlider"]:has([aria-label*="波长调节"]) div[data-baseweb="slider"] > div > div {{
         background: linear-gradient(to right, #6a00ff, #0000ff, #00ffff, #00ff00, #ffff00, #ff7f00, #ff0000, #6a0000) !important;
-        height: 12px !important;
-        border-radius: 2px !important;
     }}
-    /* 波长滑块点（实心，带白边） */
-    div[data-testid="stSlider"]:has([aria-label*="波长调节"]) div[role="slider"] {{
+    div[data-testid="stSlider"]:has([aria-label*="波长调节"]) div[data-baseweb="slider"] [role="slider"] {{
         background-color: {beam_hex} !important;
-        border: 2px solid white !important;
-        border-radius: 50% !important;
+        border: 3px solid white !important;
         width: 20px !important;
         height: 20px !important;
         margin-top: -4px !important;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.3) !important;
+        border-radius: 50% !important;
+        box-shadow: 0 0 4px rgba(0,0,0,0.5) !important;
     }}
 
-    /* ===== 浓度调节滑块 ===== */
-    /* 浓度底轨（白到溶液色渐变，直角，加粗） */
-    div[data-testid="stSlider"]:has([aria-label*="浓度调节"]) div[data-baseweb="slider"] > div > div:first-child {{
-        background: linear-gradient(to right, rgba(255,255,255,0.1), {sol_hex}) !important;
-        height: 12px !important;
-        border-radius: 2px !important;
-        border: 1px solid #e0e0e0 !important; /* 加极淡边框看清起点 */
+    /* ===== 浓度滑块定制 ===== */
+    div[data-testid="stSlider"]:has([aria-label*="浓度调节"]) div[data-baseweb="slider"] > div > div {{
+        background: linear-gradient(to right, rgba(255,255,255,0.2), {sol_hex}) !important;
+        border: 1px solid #555 !important;
     }}
-    /* 浓度滑块点（空心，内部白色，边框溶液色） */
-    div[data-testid="stSlider"]:has([aria-label*="浓度调节"]) div[role="slider"] {{
+    div[data-testid="stSlider"]:has([aria-label*="浓度调节"]) div[data-baseweb="slider"] [role="slider"] {{
         background-color: white !important;
         border: 4px solid {sol_hex} !important;
-        border-radius: 50% !important;
         width: 18px !important;
         height: 18px !important;
         margin-top: -3px !important;
+        border-radius: 50% !important;
         box-shadow: none !important;
     }}
 
-    /* ===== 光程滑块（恢复经典灰色） ===== */
-    div[data-testid="stSlider"]:has([aria-label*="光程长度"]) div[data-baseweb="slider"] > div > div:first-child {{
-        background: #e0e0e0 !important;
-        height: 8px !important;
-        border-radius: 4px !important;
+    /* ===== 光程滑块（默认灰色） ===== */
+    div[data-testid="stSlider"]:has([aria-label*="光程长度"]) div[data-baseweb="slider"] > div > div {{
+        background: #555 !important; /* 暗色模式下的灰色 */
     }}
-    div[data-testid="stSlider"]:has([aria-label*="光程长度"]) div[data-baseweb="slider"] > div > div:first-child > div {{
-        background: #999 !important;
-    }}
-    div[data-testid="stSlider"]:has([aria-label*="光程长度"]) div[role="slider"] {{
+    div[data-testid="stSlider"]:has([aria-label*="光程长度"]) div[data-baseweb="slider"] [role="slider"] {{
         background-color: white !important;
-        border: 2px solid #666 !important;
-        width: 14px !important;
-        height: 14px !important;
-        margin-top: -3px !important;
+        border: 2px solid #999 !important;
+        width: 16px !important;
+        height: 16px !important;
+        margin-top: -2px !important;
         border-radius: 50% !important;
-    }}
-
-    /* 侧边栏标题加粗 */
-    div[data-testid="stSidebar"] label {{
-        font-weight: bold !important;
-        font-size: 15px !important;
-    }}
-    /* 按钮间隙 */
-    div[data-testid="stHorizontalBlock"] {{
-        gap: 0.5rem !important;
     }}
 </style>
 """, unsafe_allow_html=True)
@@ -497,7 +477,6 @@ left_col, right_col = st.columns([1.2, 1])
 
 # ================= 左侧：高精度 SVG 场景 =================
 with left_col:
-    # 计算图层颜色 (浓度变深，颜色加深)
     depth = min(1.0, conc / cm) if cm > 0 else 0
     alpha = 0.1 + 0.9 * depth
     liquid_rgb = blend_color(SOLUTIONS[sol_key]["color"], (255, 255, 255), alpha)
@@ -505,14 +484,12 @@ with left_col:
     beam_hex = rgb2hex(beam_rgb)
     T_ratio = max(0.0, T / 100.0)
 
-    # 坐标映射
     cy = 200
     half = 25 + 40 * path
     bx0, bx1 = 400 - half, 400 + half
     lx, det_x = 160, 750
     sol_h, beam_h = 240, 50 
 
-    # 光线渲染 (使用切片模拟透明混合)
     beam_rects = ""
     if light_on:
         c_rects = f'<rect x="{lx}" y="{cy-beam_h/2}" width="{bx0-lx}" height="{beam_h}" fill="{beam_hex}" />'
@@ -530,7 +507,6 @@ with left_col:
         c_rects += f'<rect x="{bx1}" y="{cy-beam_h/2}" width="{det_x-bx1}" height="{beam_h}" fill="{rgb2hex(out_rgb)}" />'
         beam_rects = c_rects
 
-    # 悬浮屏显示
     if not light_on: fmt = "---"
     else:
         val = A if mode == "吸光度 (A)" else T
@@ -554,60 +530,38 @@ with left_col:
             </linearGradient>
         </defs>
         
-        <!-- 公式文字 -->
         <text x="20" y="35" fill="#2c5aa0" font-size="28" font-weight="bold" font-family="Times New Roman, serif">A = εbc = lg(1/T)</text>
-
-        <!-- 烧杯与液体 -->
         <rect x="{bx0}" y="{cy-sol_h/2}" width="{bx1-bx0}" height="{sol_h}" fill="{liquid_hex}" />
-        
-        <!-- 光束 (半透明混合) -->
         <g opacity="0.85">
             {beam_rects}
         </g>
-        
-        <!-- 烧杯边框 -->
         <line x1="{bx0}" y1="{cy-sol_h/2-20}" x2="{bx0}" y2="{cy+sol_h/2}" stroke="#222" stroke-width="4"/>
         <line x1="{bx1}" y1="{cy-sol_h/2-20}" x2="{bx1}" y2="{cy+sol_h/2}" stroke="#222" stroke-width="4"/>
         <line x1="{bx0}" y1="{cy+sol_h/2}" x2="{bx1}" y2="{cy+sol_h/2}" stroke="#222" stroke-width="4"/>
         
-        <!-- 光源 (灯泡形状) -->
         <g transform="translate({lx}, {cy})">
-            <!-- 灯泡底座 -->
             <path d="M -25 30 L 25 30 L 20 55 L -20 55 Z" fill="#444" stroke="#222" stroke-width="2"/>
-            <!-- 灯罩(光晕) -->
             {"<circle cx='0' cy='0' r='45' fill='url(#halo)'/>" if light_on else ""}
-            <!-- 玻璃灯泡 -->
             <circle cx="0" cy="0" r="32" fill="{'url(#glass)' if light_on else '#e0e0e0'}" stroke="{beam_hex if light_on else '#999'}" stroke-width="3"/>
-            <!-- 灯丝 -->
             <path d="M -12 15 L -12 -2 L -6 -8 L -2 4 L 2 -8 L 6 4 L 12 -2 L 12 15" fill="none" stroke="{'white' if light_on else '#666'}" stroke-width="2.5" stroke-linejoin="round"/>
         </g>
-        <!-- 光源文字加大 -->
         <text x="{lx}" y="{cy+85}" text-anchor="middle" fill="#333" font-weight="bold" font-size="18">光源</text>
         
-        <!-- 检测器 (立体感) -->
         <g transform="translate({det_x}, {cy})">
-            <!-- 线缆 -->
             <path d="M 0 90 C 0 160, 150 160, 150 50" fill="none" stroke="#777" stroke-width="6"/>
-            <!-- 手柄主体 -->
             <rect x="-25" y="40" width="50" height="50" fill="url(#detBody)" stroke="#1f4f1f" stroke-width="2" rx="4"/>
-            <!-- 手柄条纹 -->
             <line x1="-15" y1="55" x2="15" y2="55" stroke="#1f4f1f" stroke-width="3"/>
             <line x1="-15" y1="70" x2="15" y2="70" stroke="#1f4f1f" stroke-width="3"/>
-            <!-- 圆盘主体 -->
             <circle cx="0" cy="0" r="50" fill="url(#detBody)" stroke="#1f4f1f" stroke-width="3"/>
-            <!-- 接收窗口 -->
             <circle cx="0" cy="0" r="30" fill="{'#e0ffff' if light_on else '#aaa'}" stroke="white" stroke-width="3"/>
             <path d="M -30 0 A 30 30 0 0 1 30 0 Z" fill="#aadddd" opacity="0.5"/>
         </g>
         
-        <!-- 悬浮屏 -->
         <rect x="700" y="20" width="180" height="110" fill="#3a7a3a" stroke="#1f4f1f" stroke-width="3" rx="4"/>
         <rect x="715" y="30" width="150" height="55" fill="#e8f5e9" stroke="#1f4f1f" stroke-width="2"/>
-        <!-- 字体加大 -->
         <text x="790" y="70" text-anchor="middle" fill="#111" font-family="Courier New, monospace" font-size="32" font-weight="bold">{fmt}</text>
         <text x="790" y="110" text-anchor="middle" fill="white" font-size="16" font-weight="bold">{"吸光度 A" if mode == "吸光度 (A)" else "透射率 T%"}</text>
 
-        <!-- 波长与进度条 -->
         <text x="400" y="40" text-anchor="middle" fill="{beam_hex}" font-size="22" font-weight="bold">λ = {wl} nm</text>
         <rect x="280" y="360" width="240" height="15" fill="#ddd" stroke="#999" rx="7"/>
         <rect x="280" y="360" width="{240 * T_ratio}" height="15" fill="{beam_hex}" rx="7"/>
@@ -623,7 +577,6 @@ with right_col:
     Abs = [calc_absorbance(w, conc, path, sol_key, light_on) for w in wls]
     y_vals = Abs if mode == "吸光度 (A)" else [calc_transmittance(a, light_on) for a in Abs]
     
-    # 动态 Y 轴缩放
     max_val = max(y_vals) if len(y_vals) > 0 else 0
     if mode == "吸光度 (A)":
         max_y = max(0.2, max_val * 1.15)
@@ -636,7 +589,6 @@ with right_col:
     cur_y = A if mode == "吸光度 (A)" else T
     fig.add_trace(go.Scatter(x=[wl], y=[cur_y], mode='markers', marker=dict(color='#ff6b6b', size=12, line=dict(color='white', width=2)), name='当前点'))
     
-    # 避开 update_layout 底层解析，使用专用方法 (兼容最新 Plotly)
     fig.update_layout(
         margin=dict(l=10, r=10, t=40, b=10), 
         plot_bgcolor="white", 
@@ -659,7 +611,7 @@ with right_col:
     )
     st.plotly_chart(fig, use_container_width=True)
 
-# ================= 底部数据表格 (大字体，居中排版) =================
+# ================= 底部数据表格 =================
 st.subheader("多波长数据表格")
 
 rows_html = """
