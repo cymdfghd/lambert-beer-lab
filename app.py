@@ -301,7 +301,7 @@ def _parse(s):
 _SPECTRA = {k: _parse(v) for k, v in _RAW.items()}
 
 SOLUTIONS = {
-    "methyl": dict(name="甲基橙", color=(255, 68, 0), bands=[(464, 26000, 35), (350, 8000, 50)], conc_max=500, conc_label="μM"), # 调整为500μM
+    "methyl": dict(name="甲基橙", color=(255, 68, 0), bands=[(464, 26000, 35), (350, 8000, 50)], conc_max=500, conc_label="μM"),
     "kmno4": dict(name="高锰酸钾", color=(153, 0, 204), spectrum=_SPECTRA["KMnO4"], conc_max=500, conc_label="μM"),
     "k2cr2o7": dict(name="重铬酸钾", color=(255, 140, 0), spectrum=_SPECTRA["K2Cr2O7"], conc_max=300, conc_label="μM"),
     "k2cro4": dict(name="铬酸钾", color=(255, 180, 0), spectrum=_SPECTRA["K2CrO4"], conc_max=250, conc_label="μM"),
@@ -404,7 +404,7 @@ with st.sidebar:
     st.radio("测量模式", ["吸光度 (A)", "透射率 (T%)"], key="mode", horizontal=True)
     
     st.slider(f"浓度调节 ({SOLUTIONS[sol_key]['conc_label']})", min_value=0, max_value=cm, value=st.session_state.conc, step=max(1, cm//100), key="conc")
-    st.slider("光程长度 (cm)", 0.5, 2.0, 1.0, 0.1)
+    st.slider("光程长度 (cm)", 0.5, 2.0, 1.0, 0.1, key="path")
     st.slider("波长调节 (nm)", 380, 780, key="wl")
     
     st.toggle("🔦 开灯 / 关灯", key="light_on")
@@ -420,14 +420,9 @@ with st.sidebar:
 # 数值计算
 wl = st.session_state.wl
 conc = st.session_state.conc
-path = 1.0 # 默认1.0，如果要取滑块的值需提取
+path = st.session_state.path
 light_on = st.session_state.light_on
 mode = st.session_state.mode
-
-# 此处修正：光程从滑块获取(用单独变量)
-# (Streamlit 中滑块的值若要同时用于计算，需在定义时 return 出来，这里在下面重新提取一下，或者直接使用上面的 key)
-# 为了代码整洁，上面已经绑定 key，这里直接读取 session_state 里由 Streamlit 自动维护的值
-path = st.session_state.get('光程长度 (cm)', 1.0)
 
 A = calc_absorbance(wl, conc, path, sol_key, light_on)
 T = calc_transmittance(A, light_on)
@@ -573,7 +568,7 @@ with right_col:
     # 动态 Y 轴缩放
     max_val = max(y_vals) if len(y_vals) > 0 else 0
     if mode == "吸光度 (A)":
-        max_y = max(0.2, max_val * 1.15) # 保证即使很小也能看清起伏
+        max_y = max(0.2, max_val * 1.15)
     else:
         max_y = min(100.0, max(10.0, max_val * 1.15))
 
@@ -583,16 +578,27 @@ with right_col:
     cur_y = A if mode == "吸光度 (A)" else T
     fig.add_trace(go.Scatter(x=[wl], y=[cur_y], mode='markers', marker=dict(color='#ff6b6b', size=12, line=dict(color='white', width=2)), name='当前点'))
     
+    # 避开 update_layout 底层解析，使用专用方法
     fig.update_layout(
         margin=dict(l=10, r=10, t=40, b=10), 
-        xaxis=dict(title="波长 (nm)", range=[380, 780], tickfont=dict(size=14), titlefont=dict(size=16)),
-        yaxis=dict(title="吸光度 A" if mode == "吸光度 (A)" else "透射率 T%", range=[0, max_y], tickfont=dict(size=14), titlefont=dict(size=16)),
         plot_bgcolor="white", 
         height=350,
         showlegend=False
     )
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='#eee')
-    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#eee')
+    fig.update_xaxes(
+        title_text="波长 (nm)", 
+        title_font=dict(size=16), 
+        range=[380, 780], 
+        tickfont=dict(size=14),
+        showgrid=True, gridwidth=1, gridcolor='#eee'
+    )
+    fig.update_yaxes(
+        title_text="吸光度 A" if mode == "吸光度 (A)" else "透射率 T%", 
+        title_font=dict(size=16), 
+        range=[0, max_y], 
+        tickfont=dict(size=14),
+        showgrid=True, gridwidth=1, gridcolor='#eee'
+    )
     st.plotly_chart(fig, use_container_width=True)
 
 # ================= 底部数据表格 (大字体，居中排版) =================
